@@ -64,7 +64,7 @@ def get_docs_all_csv(timestamps):
         if(next):
             data_row.append(item.strftime("%Y-%m-%d"))
             for core in cores:
-                url_string = 'http://rslr006p.nandomedia.com:8983/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
+                url_string = Config.get("Solr server", "master_host") + '/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
                 tree = ET.parse(urllib2.urlopen(url_string))
                 rootElem = tree.getroot().find('result')
                 data_row.append(rootElem.attrib.get('numFound'))
@@ -79,7 +79,7 @@ def get_docs_all_csv(timestamps):
 def get_docs_single_core(core, timestamps):
     for previous, item, next in previous_and_next(timestamps):
         if(next):
-            url_string = 'http://rslr006p.nandomedia.com:8983/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
+            url_string = Config.get("Solr server", "master_host") + '/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
             tree = ET.parse(urllib2.urlopen(url_string))
             rootElem = tree.getroot().find('result')
             print item.strftime("%Y-%m-%d") + ": " + rootElem.attrib.get('numFound')
@@ -90,7 +90,7 @@ def query_multi_core(query):
     results = []
     numResults = 0
     for core in cores:
-        url_string = 'http://rslr006p.nandomedia.com:8983/solr/{0}/select/?q={1}'.format(core, query)
+        url_string = Config.get("Solr server", "master_host") + '/solr/{0}/select/?q={1}'.format(core, query)
         try:
             tree = ET.parse(urllib2.urlopen(url_string))
             rootElem = tree.getroot().find('result')
