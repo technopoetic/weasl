@@ -8,7 +8,6 @@ import urllib2
 import csv
 from datetime import timedelta
 import xml.etree.ElementTree as ET
-from bs4 import BeautifulSoup
 from itertools import tee, islice, chain, izip
 import ConfigParser
 
@@ -26,17 +25,13 @@ def previous_and_next(some_iterable):
 def get_cores_list():
     admin_url = Config.get("Solr server", "master_host") + "/solr/admin/cores?action=STATUS"
     solr_admin_page = urllib2.urlopen(admin_url)
-    admin_html = solr_admin_page.read()
-    # admin_soup = BeautifulSoup(admin_html)
     cores_list = []
-    # for link in admin_soup.find_all('a'):
-    #     if(link.get('href').split('/')[0] != "DEFAULT" and link.get('href').split('/')[0] != "." and link.get('href').split('/')[0] != "gitmo" ):
-    #         cores_list.append(link.get('href').split('/')[0])
-    tree = ET.parse(urllib2.urlopen(url_string))
-    rootElem = tree.getroot().find('results')
-    for child in rootElem:
-        print child.tag, child.attrib
-    # return cores_list
+    tree = ET.parse(urllib2.urlopen(admin_url))
+    root = tree.getroot()
+    status =  root.find(".//lst[@name='status']")
+    for child in status:
+        cores_list.append(child.get('name'))
+    return cores_list
 
 # Given a start and end date, returns a list of all the dates in between, inclusive.
 def date_range(start, end):
@@ -96,16 +91,21 @@ def query_multi_core(query):
     numResults = 0
     for core in cores:
         url_string = 'http://rslr006p.nandomedia.com:8983/solr/{0}/select/?q={1}'.format(core, query)
-        tree = ET.parse(urllib2.urlopen(url_string))
-        rootElem = tree.getroot().find('result')
-        print "\n" + core + ": " + url_string
-        print  "Results: " + rootElem.attrib.get('numFound')
-        numResults += int(rootElem.attrib.get('numFound'))
+        try:
+            tree = ET.parse(urllib2.urlopen(url_string))
+            rootElem = tree.getroot().find('result')
+            print "\n" + core + ": " + url_string
+            print  "Results: " + rootElem.attrib.get('numFound')
+            numResults += int(rootElem.attrib.get('numFound'))
+        except urllib2.HTTPError:
+            print "Error connecting to core: {0}".format(core)
     print "Total Results across all cores: " + str(numResults)
 
 def main(argv):
     single_core = None
     multi_query = None
+    start_date = None
+    end_date = None
     csv_file = 0
     try:
         opts, args = getopt.getopt(argv,"hfm:s:e:c:t",["core=", "start=","end=", "multi="])
@@ -139,7 +139,7 @@ def main(argv):
         get_docs_all_csv(dates_range)
     elif(multi_query):
         query_multi_core(multi_query)
-    else:
+    elif None not in (start_date, end_date):
         dates_range = date_range(start_date, end_date)
         get_docs_all_cores(dates_range)
 
