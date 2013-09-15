@@ -17,6 +17,9 @@ def previous_and_next(some_iterable):
     nexts = chain(islice(nexts, 1, None), [None])
     return izip(prevs, items, nexts)
 
+# Returns the entire list of cores.
+# TODO: Use /solr/admin/cores?action=STATUS to get an xml result.  
+# That would allow me to get rid of Beautiful Soup and just use ElementTree
 def get_cores_list(admin_url):
     solr_admin_page = urllib2.urlopen(admin_url)
     admin_html = solr_admin_page.read()
@@ -122,11 +125,5 @@ def main(argv):
         dates_range = date_range(start_date, end_date)
         get_docs_all_cores(dates_range)
 
-# today = datetime.date.today()
-# this_week = [(today - timedelta(days = x)).strftime("%Y-%m-%d") + ": Journal" for x in range(today.weekday()+1)]
-# home_dir = os.getenv("HOME")
-
 if __name__ == "__main__":
        main(sys.argv[1:])
-
-# Nothing to see here.  Just testing git.
