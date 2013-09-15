@@ -10,43 +10,56 @@ from datetime import timedelta
 from elementtree import ElementTree
 from bs4 import BeautifulSoup
 from itertools import tee, islice, chain, izip
+import ConfigParser
 
+Config = ConfigParser.ConfigParser()
+Config.read("weasl.cfg")
+
+# This funtion allows me to access the next and previous elements while iterating through a list.
 def previous_and_next(some_iterable):
     prevs, items, nexts = tee(some_iterable, 3)
     prevs = chain([None], prevs)
     nexts = chain(islice(nexts, 1, None), [None])
     return izip(prevs, items, nexts)
 
-# Returns the entire list of cores.
-# TODO: Use /solr/admin/cores?action=STATUS to get an xml result.  
-# That would allow me to get rid of Beautiful Soup and just use ElementTree
-def get_cores_list(admin_url):
+# Gets all cores for the solr installation by parsing the list of cores in the admin interface
+def get_cores_list():
+    admin_url = Config.get("Solr server", "master_host") + "/solr/"
     solr_admin_page = urllib2.urlopen(admin_url)
     admin_html = solr_admin_page.read()
-    admin_soup = BeautifulSoup(admin_html)
+    # admin_soup = BeautifulSoup(admin_html)
     cores_list = []
-    for link in admin_soup.find_all('a'):
-        if(link.get('href').split('/')[0] != "DEFAULT" and link.get('href').split('/')[0] != "." and link.get('href').split('/')[0] != "gitmo" ):
-            cores_list.append(link.get('href').split('/')[0])
-    return cores_list
+    # for link in admin_soup.find_all('a'):
+    #     if(link.get('href').split('/')[0] != "DEFAULT" and link.get('href').split('/')[0] != "." and link.get('href').split('/')[0] != "gitmo" ):
+    #         cores_list.append(link.get('href').split('/')[0])
+    tree = ElementTree.parse(urllib2.urlopen(url_string))
+    rootElem = tree.getroot().find('html')
+    for child in rootElem:
+        print child.tag, child.attrib
+    # return cores_list
 
+# Given a start and end date, returns a list of all the dates in between, inclusive.
 def date_range(start, end):
     r = (end+datetime.timedelta(days=1)-start).days
     return [start+datetime.timedelta(days=i) for i in range(r)]
 
+# Given a list of timestamps, print a list of the number of documents added per timestamp.
+# TODO: Make this more general.  Maybe it should take a query parameter as well, and it should return something.
 def get_docs_all_cores(timestamps):
-    cores = get_cores_list('http://rslr006p.nandomedia.com:8983/solr/')
+    cores = get_cores_list()
     for core in cores:
         print "\n" + core 
         for previous, item, next in previous_and_next(timestamps):
             if(next):
-                url_string = 'http://rslr006p.nandomedia.com:8983/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
+                query = '/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
+                url_string = Config.get("Solr server", "master_host") + query
                 tree = ElementTree.parse(urllib2.urlopen(url_string))
                 rootElem = tree.getroot().find('result')
                 print item.strftime("%Y-%m-%d") + ": " + rootElem.attrib.get('numFound')
 
+# Same as get_docs_all_cores, but output the results as a csv file.
 def get_docs_all_csv(timestamps):
-    cores = get_cores_list('http://rslr006p.nandomedia.com:8983/solr/')
+    cores = get_cores_list()
     rows = []
     header_row = list(cores)
     header_row.insert(0,"Date")
@@ -66,6 +79,8 @@ def get_docs_all_csv(timestamps):
         writer.writerows(rows)
     print "Done!"
 
+# Given a core name, and a list of timestamps, prints a count of all docs added to that core per day.
+# TODO: Combine this with get_docs_all_cores.  If single core parameter is passed, then only query that core, else query all cores.
 def get_docs_single_core(core, timestamps):
     for previous, item, next in previous_and_next(timestamps):
         if(next):
@@ -74,8 +89,9 @@ def get_docs_single_core(core, timestamps):
             rootElem = tree.getroot().find('result')
             print item.strftime("%Y-%m-%d") + ": " + rootElem.attrib.get('numFound')
 
+# Execute a query across all cores.
 def query_multi_core(query):
-    cores = get_cores_list('http://rslr006p.nandomedia.com:8983/solr/')
+    cores = get_cores_list()
     results = []
     numResults = 0
     for core in cores:
@@ -92,13 +108,13 @@ def main(argv):
     multi_query = None
     csv_file = 0
     try:
-        opts, args = getopt.getopt(argv,"hfm:s:e:c:",["core=", "start=","end=", "multi="])
+        opts, args = getopt.getopt(argv,"hfm:s:e:c:t",["core=", "start=","end=", "multi="])
     except getopt.GetoptError:
         print 'weasl.py -s <start_date> -e <end_date>'
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'weasl.py -s <YYYY-MM-DD> -e <YYYY-MM-DD>'
+            print 'weasl.py -s <start_date> -e <end_date>'
             sys.exit()
         elif opt in ("-s", "--start"):
             start_date_arg = arg.split('-')
@@ -112,6 +128,8 @@ def main(argv):
             csv_file = 1
         elif opt in ("-m", "--multi"):
             multi_query = arg
+        elif opt in ("-t"):
+            get_cores_list() 
 
     if None not in (single_core, multi_query):
         dates_range = date_range(start_date, end_date)
