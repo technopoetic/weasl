@@ -7,7 +7,7 @@ import datetime
 import urllib2
 import csv
 from datetime import timedelta
-from elementtree import ElementTree
+import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 from itertools import tee, islice, chain, izip
 import ConfigParser
@@ -24,7 +24,7 @@ def previous_and_next(some_iterable):
 
 # Gets all cores for the solr installation by parsing the list of cores in the admin interface
 def get_cores_list():
-    admin_url = Config.get("Solr server", "master_host") + "/solr/"
+    admin_url = Config.get("Solr server", "master_host") + "/solr/admin/cores?action=STATUS"
     solr_admin_page = urllib2.urlopen(admin_url)
     admin_html = solr_admin_page.read()
     # admin_soup = BeautifulSoup(admin_html)
@@ -32,8 +32,8 @@ def get_cores_list():
     # for link in admin_soup.find_all('a'):
     #     if(link.get('href').split('/')[0] != "DEFAULT" and link.get('href').split('/')[0] != "." and link.get('href').split('/')[0] != "gitmo" ):
     #         cores_list.append(link.get('href').split('/')[0])
-    tree = ElementTree.parse(urllib2.urlopen(url_string))
-    rootElem = tree.getroot().find('html')
+    tree = ET.parse(urllib2.urlopen(url_string))
+    rootElem = tree.getroot().find('results')
     for child in rootElem:
         print child.tag, child.attrib
     # return cores_list
@@ -53,7 +53,7 @@ def get_docs_all_cores(timestamps):
             if(next):
                 query = '/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
                 url_string = Config.get("Solr server", "master_host") + query
-                tree = ElementTree.parse(urllib2.urlopen(url_string))
+                tree = ET.parse(urllib2.urlopen(url_string))
                 rootElem = tree.getroot().find('result')
                 print item.strftime("%Y-%m-%d") + ": " + rootElem.attrib.get('numFound')
 
@@ -70,7 +70,7 @@ def get_docs_all_csv(timestamps):
             data_row.append(item.strftime("%Y-%m-%d"))
             for core in cores:
                 url_string = 'http://rslr006p.nandomedia.com:8983/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
-                tree = ElementTree.parse(urllib2.urlopen(url_string))
+                tree = ET.parse(urllib2.urlopen(url_string))
                 rootElem = tree.getroot().find('result')
                 data_row.append(rootElem.attrib.get('numFound'))
         rows.append(data_row)
@@ -85,7 +85,7 @@ def get_docs_single_core(core, timestamps):
     for previous, item, next in previous_and_next(timestamps):
         if(next):
             url_string = 'http://rslr006p.nandomedia.com:8983/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, item.strftime("%s"), next.strftime("%s"))
-            tree = ElementTree.parse(urllib2.urlopen(url_string))
+            tree = ET.parse(urllib2.urlopen(url_string))
             rootElem = tree.getroot().find('result')
             print item.strftime("%Y-%m-%d") + ": " + rootElem.attrib.get('numFound')
 
@@ -96,7 +96,7 @@ def query_multi_core(query):
     numResults = 0
     for core in cores:
         url_string = 'http://rslr006p.nandomedia.com:8983/solr/{0}/select/?q={1}'.format(core, query)
-        tree = ElementTree.parse(urllib2.urlopen(url_string))
+        tree = ET.parse(urllib2.urlopen(url_string))
         rootElem = tree.getroot().find('result')
         print "\n" + core + ": " + url_string
         print  "Results: " + rootElem.attrib.get('numFound')
