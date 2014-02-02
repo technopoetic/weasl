@@ -24,7 +24,6 @@ def previous_and_next(some_iterable):
 # Gets all cores for the solr installation by parsing the list of cores in the admin interface
 def get_cores_list():
     admin_url = Config.get("Solr server", "master_host") + "/solr/admin/cores?action=STATUS"
-    solr_admin_page = urllib2.urlopen(admin_url)
     cores_list = []
     tree = ET.parse(urllib2.urlopen(admin_url))
     root = tree.getroot()
@@ -83,6 +82,14 @@ def get_docs_single_core(core, timestamps):
             tree = ET.parse(urllib2.urlopen(url_string))
             rootElem = tree.getroot().find('result')
             print item.strftime("%Y-%m-%d") + ": " + rootElem.attrib.get('numFound')
+
+# Given a core, a start timestamp, and an end timestamp, get a list of the actual docs (The actual XML document objects).
+def get_docs_(core, start, end):
+    url_string = Config.get("Solr server", "master_host") + '/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, start.strftime("%s"), end.strftime("%s"))
+    tree = ET.parse(urllib2.urlopen(url_string))
+    rootElem = tree.getroot().find('result')
+    print item.strftime("%Y-%m-%d") + ": " + rootElem.attrib.get('numFound')
+
 
 # Execute a query across all cores.
 def query_multi_core(query):
