@@ -88,7 +88,9 @@ def get_docs_(core, start, end):
     url_string = Config.get("Solr server", "master_host") + '/solr/{0}/select/?q=pubsys_asset_creation_dt%3A%5B{1}+TO+{2}%5D&start=0&rows=1'.format(core, start.strftime("%s"), end.strftime("%s"))
     tree = ET.parse(urllib2.urlopen(url_string))
     rootElem = tree.getroot().find('result')
-    print item.strftime("%Y-%m-%d") + ": " + rootElem.attrib.get('numFound')
+    doclist = rootElem.findall('doc')
+    for doc in doclist:
+        print doc
 
 
 # Execute a query across all cores.
